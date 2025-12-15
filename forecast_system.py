@@ -1,113 +1,87 @@
-# forecast_system.py
-# Quantitative AI Statistical Forecasting System - Part 1
+## forecast_system.py
 
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy import stats
-import warnings
-warnings.filterwarnings('ignore')
+from pathlib import Path
+from openpyxl import Workbook
+from openpyxl.styles import Font
+from openpyxl.utils.dataframe import dataframe_to_rows
 
-
-class QuantitativeForecaster:
+# -----------------------------
+# Forecast Function
+# -----------------------------
+def run_forecast(input_file):
     """
-    Quantitative AI forecasting system using statistical mathematics.
-    Implements numerical methods and probability theory.
+    Reads historical data, runs a simple forecast (placeholder), and returns forecast DataFrame.
+    Replace this with your actual forecasting logic.
     """
+    # Load historical data
+    df = pd.read_csv(input_file)
 
-    def __init__(self, data_path):
-        """Initialize with historical dataset."""
-        self.df = pd.read_csv(data_path)
-        self.df['date'] = pd.to_datetime(self.df['date'])
-        self.df.set_index('date', inplace=True)
+    # Example: Simple rolling average forecast for next 13 months
+    # Replace this with your real forecasting model
+    last_value = df['Volume'].iloc[-1]
+    forecast_values = [last_value * (1 + 0.02 * i) for i in range(1, 14)]
+    months = pd.date_range(start=pd.Timestamp.today(), periods=13, freq='M').strftime("%b-%Y")
 
-        # Colors for graphs
-        self.colors = {
-            'red': '#B22234',
-            'white': '#FFFFFF',
-            'blue': '#3C3B6E'
-        }
+    forecast_df = pd.DataFrame({
+        'Month': months,
+        'Forecast Volume': forecast_values
+    })
 
-        print("\033[91m" + "="*60)
-        print("\033[97m" + " 📊 QUANTITATIVE AI FORECASTING SYSTEM 📊")
-        print("\033[94m" + "="*60 + "\033[0m")
-        print(f"Loaded {len(self.df)} data points")
-        print(f"Data dimensionality: {self.df.shape}")
+    return forecast_df
 
-    def quantitative_analysis(self):
-        """Perform comprehensive quantitative analysis."""
-        print("\n🔍 QUANTITATIVE PATTERN ANALYSIS...\n")
+# -----------------------------
+# Excel Writing Function
+# -----------------------------
+def write_forecast_to_excel(forecast_df, output_path):
+    """
+    Writes the forecast DataFrame to a nicely formatted Excel file.
+    """
+    # Ensure the output folder exists
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
-        stats_dict = {
-            'mean': self.df['volume'].mean(),
-            'variance': self.df['volume'].var(),
-            'std_dev': self.df['volume'].std(),
-            'skewness': stats.skew(self.df['volume']),
-            'kurtosis': stats.kurtosis(self.df['volume']),
-            'cv': self.df['volume'].std() / self.df['volume'].mean(),
-            'trend_coefficient': np.polyfit(range(len(self.df)), self.df['volume'], 1)[0]
-        }
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "13 Month Forecast"
 
-        print("📌 Statistical Summary:")
-        for k, v in stats_dict.items():
-            print(f"{k:20} → {v:.4f}")
+    # Add title
+    ws["A1"] = "13-Month Volume Forecast"
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])  # Blank row
 
-        return stats_dict
+    # Add DataFrame to sheet
+    for r_idx, row in enumerate(dataframe_to_rows(forecast_df.round(2), index=False, header=True), start=1):
+        ws.append(row)
+        # Bold header
+        if r_idx == 1:
+            for cell in ws[ws.max_row]:
+                cell.font = Font(bold=True)
 
-    def moving_average_forecast(self, window=7):
-        """Simple Moving Average (SMA) forecast."""
-        print("\n📘 MOVING AVERAGE FORECAST")
-        self.df["sma"] = self.df["volume"].rolling(window=window).mean()
+    # Auto-adjust column widths
+    for col in ws.columns:
+        max_length = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        ws.column_dimensions[col_letter].width = max_length + 4
 
-        forecast = self.df["sma"].iloc[-1]
-        print(f"Next-day SMA forecast ({window}-day window): {forecast:.2f}")
+    # Save Excel file
+    wb.save(output_path)
+    print(f"Forecast written to {output_path}")
 
-        return forecast
-
-    def exponential_smoothing(self, alpha=0.3):
-        """Single exponential smoothing forecast."""
-        print("\n📗 EXPONENTIAL SMOOTHING FORECAST")
-
-        es = [self.df["volume"].iloc[0]]
-        for v in self.df["volume"][1:]:
-            es.append(alpha * v + (1 - alpha) * es[-1])
-
-        self.df["exp_smoothing"] = es
-        forecast = es[-1]
-
-        print(f"Next-day exponential smoothing forecast (alpha={alpha}): {forecast:.2f}")
-        return forecast
-
-    def create_visualizations(self):
-        """Create and save trend, moving average, and smoothing plots."""
-        print("\n📊 Generating visualizations...")
-
-        plt.figure(figsize=(12, 6))
-        plt.plot(self.df.index, self.df["volume"], label="Volume", color=self.colors['blue'])
-
-        if "sma" in self.df:
-            plt.plot(self.df.index, self.df["sma"], label="7-Day SMA", color=self.colors['red'])
-
-        if "exp_smoothing" in self.df:
-            plt.plot(self.df.index, self.df["exp_smoothing"], label="Exp Smoothing", color=self.colors['white'])
-
-        plt.title("Volume Forecasting Visualizations")
-        plt.legend()
-        plt.grid()
-        plt.savefig("forecast_visualization.png")
-
-        print("📁 Saved: forecast_visualization.png")
-
-
-# =======================
-# MAIN EXECUTION SECTION
-# =======================
-
+# -----------------------------
+# Main Script
+# -----------------------------
 if __name__ == "__main__":
-    forecaster = QuantitativeForecaster("data/historical_volumes.csv")
+    # Input CSV file path (replace with your actual path)
+    input_csv = "historical_data.csv"
 
-    # Run analysis steps
-    forecaster.quantitative_analysis()
-    forecaster.moving_average_forecast(window=7)
-    forecaster.exponential_smoothing(alpha=0.3)
-    forecaster.create_visualizations()
+    # Run forecast
+    forecast_df = run_forecast(input_csv)
+
+    # Output Excel path
+    output_file = "forecast_outputs/13_month_volume_forecast.xlsx"
+
+    # Write to Excel
+    write_forecast_to_excel(forecast_df, output_file)
